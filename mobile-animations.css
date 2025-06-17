@@ -1,0 +1,117 @@
+/* Базовые анимации */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Классы для анимации */
+.mobile-animate {
+  opacity: 0;
+  transform: translateY(30px);
+  transition: all 0.6s ease-out;
+}
+
+.mobile-animate.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.mobile-animate-delay-1 {
+  transition-delay: 0.2s;
+}
+
+.mobile-animate-delay-2 {
+  transition-delay: 0.4s;
+}
+
+.mobile-animate-delay-3 {
+  transition-delay: 0.6s;
+}
+
+/* Анимации для текста */
+.mobile-text-animate {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: all 0.4s ease-out;
+}
+
+.mobile-text-animate.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Анимации для блоков */
+.mobile-block-animate {
+  opacity: 0;
+  transform: translateY(40px) scale(0.95);
+  transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.mobile-block-animate.visible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+/* Анимации для изображений */
+.mobile-image-animate {
+  opacity: 0;
+  transform: scale(0.95);
+  transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.mobile-image-animate.visible {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* Анимации для градиентного текста */
+.mobile-gradient-text-animate {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  background-size: 200% 200%;
+  animation: gradientMove 3s ease infinite;
+}
+
+.mobile-gradient-text-animate.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@keyframes gradientMove {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+} 
