@@ -1,0 +1,48 @@
+.hero-wrapper {
+    position: relative;
+    width: 100%;
+    max-width: 1440px;
+    margin: 0 auto;
+  }
+  
+  .hero-image {
+    width: 100%;
+    height: auto;
+    display: block;
+  }
+  
+  .hero-text {
+    position: absolute;
+    top: 20%;
+    left: 10%;
+    color: white;
+    font-family: 'Figtree', sans-serif;
+  }
+  
+  .main-heading span {
+    display: block;
+    font-size: 40px;
+    font-weight: 600;
+    line-height: 1.2;
+  }
+  
+  .selegence {
+    font-family: 'Fragment Mono', monospace;
+    font-size: 96px;
+    font-weight: 400;
+    line-height: 1.5;
+  }
+  
+  .subheading {
+    font-size: 12px;
+    font-weight: 500;
+    margin-top: 20px;
+    line-height: 1.6;
+  }
+  
+  .coming-soon {
+    font-size: 14px;
+    font-style: italic;
+    margin-top: 40px;
+  }
+  
