@@ -1,13 +1,174 @@
 <!DOCTYPE html>
 <html lang="en">
-<head> 
-  <script src="https://cdn.tailwindcss.com"></script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Selegence – AI Website Builder</title>
   <meta name="description" content="Selegence is an AI-powered web builder designed for creators. Instantly generate, edit, and publish modern websites.">
   <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="mobile-animations.css">
+  <link rel="stylesheet" href="/dist/output.css">
+  <script type="module">
+    import { validateEmail, setupRealTimeValidation } from './email-validation.js';
+
+    // Функция для проверки видимости элемента в viewport
+    function isElementInViewport(el) {
+      const rect = el.getBoundingClientRect();
+      return (
+        rect.top <= (window.innerHeight || document.documentElement.clientHeight) * 0.8 &&
+        rect.bottom >= 0
+      );
+    }
+
+    // Функция для обработки анимаций при скролле
+    function handleScrollAnimations() {
+      const animatedElements = document.querySelectorAll('.mobile-animate, .mobile-text-animate, .mobile-block-animate, .mobile-image-animate, .mobile-gradient-text-animate');
+      
+      animatedElements.forEach(element => {
+        if (isElementInViewport(element)) {
+          element.style.visibility = 'visible';
+          element.style.opacity = '1';
+          element.style.transform = 'translateY(0)';
+        }
+      });
+    }
+
+    // Функция для проверки honeypot (анти-бот защита)
+    function checkHoneypot(form) {
+      const honeypotField = form.querySelector('input[name="website"]');
+      return honeypotField && honeypotField.value.trim() === '';
+    }
+
+    // Функция для отправки email в Supabase
+    async function submitEmail(email, formId) {
+      try {
+        const response = await fetch('/api/subscribe', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ email })
+        });
+
+        if (response.ok) {
+          return { success: true, message: 'Thank you! You\'ve been added to our waitlist.' };
+        } else {
+          const error = await response.json();
+          return { success: false, message: error.message || 'Something went wrong. Please try again.' };
+        }
+      } catch (error) {
+        console.error('Error submitting email:', error);
+        return { success: false, message: 'Network error. Please check your connection and try again.' };
+      }
+    }
+
+    // Функция для обработки отправки формы
+    async function handleFormSubmit(event, formId, inputId, messageId) {
+      event.preventDefault();
+      
+      const form = event.target;
+      const input = document.getElementById(inputId);
+      const messageElement = document.getElementById(messageId);
+      const submitButton = form.querySelector('button[type="submit"]');
+      
+      // Проверка honeypot
+      if (!checkHoneypot(form)) {
+        console.log('Bot detected via honeypot');
+        messageElement.textContent = 'Submission blocked.';
+        messageElement.className = 'text-red-500 mt-2 text-center text-sm';
+        return;
+      }
+
+      const email = input.value.trim();
+      
+      if (!email) {
+        messageElement.textContent = 'Please enter your email address.';
+        messageElement.className = 'text-red-500 mt-2 text-center text-sm';
+        return;
+      }
+
+      // Валидация email
+      const validation = await validateEmail(email);
+      if (!validation.isValid) {
+        messageElement.textContent = validation.error;
+        messageElement.className = 'text-red-500 mt-2 text-center text-sm';
+        return;
+      }
+
+      // Отключаем кнопку и показываем загрузку
+      submitButton.disabled = true;
+      submitButton.textContent = 'Submitting...';
+      messageElement.textContent = 'Submitting...';
+      messageElement.className = 'text-blue-500 mt-2 text-center text-sm';
+
+      try {
+        const result = await submitEmail(email, formId);
+        
+        if (result.success) {
+          messageElement.textContent = result.message;
+          messageElement.className = 'text-green-500 mt-2 text-center text-sm';
+          input.value = '';
+          form.reset();
+        } else {
+          messageElement.textContent = result.message;
+          messageElement.className = 'text-red-500 mt-2 text-center text-sm';
+        }
+      } catch (error) {
+        messageElement.textContent = 'An error occurred. Please try again.';
+        messageElement.className = 'text-red-500 mt-2 text-center text-sm';
+      } finally {
+        // Восстанавливаем кнопку
+        submitButton.disabled = false;
+        submitButton.textContent = 'Submit';
+      }
+    }
+
+    // Инициализация всех форм при загрузке страницы
+    document.addEventListener('DOMContentLoaded', function() {
+      // Desktop формы
+      const desktopForm = document.getElementById('email-form-desktop');
+      const desktopInput = document.getElementById('email-input-desktop');
+      const desktopMessage = document.getElementById('email-message-desktop');
+      
+      if (desktopForm && desktopInput && desktopMessage) {
+        desktopForm.addEventListener('submit', (e) => handleFormSubmit(e, 'desktop', 'email-input-desktop', 'email-message-desktop'));
+        setupRealTimeValidation(desktopInput, desktopMessage);
+      }
+
+      const bottomForm = document.getElementById('email-form-bottom');
+      const bottomInput = document.getElementById('email-input-bottom');
+      const bottomMessage = document.getElementById('email-message-bottom');
+      
+      if (bottomForm && bottomInput && bottomMessage) {
+        bottomForm.addEventListener('submit', (e) => handleFormSubmit(e, 'bottom', 'email-input-bottom', 'email-message-bottom'));
+        setupRealTimeValidation(bottomInput, bottomMessage);
+      }
+
+      // Mobile формы
+      const mobileForm = document.getElementById('email-form-mobile');
+      const mobileInput = document.getElementById('email-input-mobile');
+      const mobileMessage = document.getElementById('email-message-mobile');
+      
+      if (mobileForm && mobileInput && mobileMessage) {
+        mobileForm.addEventListener('submit', (e) => handleFormSubmit(e, 'mobile', 'email-input-mobile', 'email-message-mobile'));
+        setupRealTimeValidation(mobileInput, mobileMessage);
+      }
+
+      const bottomMobileForm = document.getElementById('email-form-bottom-mobile');
+      const bottomMobileInput = document.getElementById('email-input-bottom-mobile');
+      const bottomMobileMessage = document.getElementById('email-message-bottom-mobile');
+      
+      if (bottomMobileForm && bottomMobileInput && bottomMobileMessage) {
+        bottomMobileForm.addEventListener('submit', (e) => handleFormSubmit(e, 'bottom-mobile', 'email-input-bottom-mobile', 'email-message-bottom-mobile'));
+        setupRealTimeValidation(bottomMobileInput, bottomMobileMessage);
+      }
+
+      // Запускаем анимации
+      handleScrollAnimations();
+    });
+
+    // Добавляем обработчик скролла
+    window.addEventListener('scroll', handleScrollAnimations);
+  </script>
   <style>
     html, body {
       margin: 0;
@@ -117,959 +278,430 @@
       margin-top: 20px;
       max-width: 400px;
     }
+
+    body {
+      font-family: 'Figtree', sans-serif;
+    }
+    .fragment-mono {
+      font-family: 'Fragment Mono', monospace;
+    }
   </style>
 </head>
 <body>
-  <!-- Desktop Hero -->
-  <section class="hero hidden md:flex">
-    <img src="./assets/herodesktop.png" alt="Selegence – No-Code AI Website Builder" />
-    
-    <div class="hero-content">
-      <!-- Подключи Tailwind и шрифты: Figtree и Fragment Mono -->
-<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Fragment+Mono&display=swap" rel="stylesheet">
-
-<style>
-  body {
-    font-family: 'Figtree', sans-serif;
-  }
-  .fragment-mono {
-    font-family: 'Fragment Mono', monospace;
-  }
-</style>
-<!-- Hero-тексты -->
-<div class="hero-text flex flex-col items-center justify-center mt-0">
-  <span class="text-[28px] lg:text-[36px] font-medium mb-1">Introducing</span>
-  <span class="fragment-mono text-[18px] lg:text-[28px] font-medium mb-8 leading-none">Selegence</span>
-  <span class="text-[28px] lg:text-[36px] font-medium mb-0">The Ultimate</span>
-  <span class="text-[28px] lg:text-[36px] font-medium mb-8">No-Code Platform</span>
-  <span class="text-[16px] lg:text-[18px] font-normal text-gray-200 max-w-lg leading-snug text-center mt-8 mb-8">
-    Be among the first to experience<br>
-    Selegence — the next-generation<br>
-    AI platform for website creation.<br>
-    Sign up now to get priority access before official release.
-  </span>
-  <!-- Email CTA Desktop -->
-  <form id="email-form-desktop" class="hidden md:flex mt-4 w-full max-w-lg relative" autocomplete="off" aria-label="Subscribe for early access">
-    <input type="email" id="email-input-desktop" name="email" required autocomplete="off" placeholder="Enter your email" class="w-full pr-32 py-2 pl-5 rounded-full border border-gray-300 focus:border-blue-400 outline-none text-gray-900 text-base bg-white overflow-x-auto whitespace-nowrap max-w-lg text-left" aria-label="Email address">
-    <input type="text" name="website" class="hidden" aria-hidden="true" tabindex="-1">
-    <button type="submit" id="email-submit-desktop" class="absolute right-1 top-1 bottom-1 px-7 bg-black text-white font-normal rounded-full transition disabled:opacity-60 text-sm" aria-label="Submit email">Submit</button>
-  </form>
-  <div id="email-message-desktop" class="mt-2 min-h-[24px] text-center text-sm"></div>
-</div>
-</section>
-
-<!-- Mobile Hero -->
-<section class="relative min-h-[60vh] md:hidden">
-  <img src="./assets/wandback.png" alt="Mobile Background" class="absolute inset-0 w-full h-full object-cover">
-    <div class="relative flex flex-col justify-start items-center pt-[36px]">
-  <div class="relative w-full flex justify-center">
-    <img src="./assets/phonelowe.png" alt="Mobile Foreground" class="max-w-[90%] h-auto">
-    <div class="absolute top-0 left-0 w-full h-full flex flex-col items-center pointer-events-none pb-2">
-  <div class="w-full flex flex-col items-center pt-12">
-    <span class="text-[18px] font-medium mb-1 text-white">Introducing</span>
-    <span class="mb-8"></span>
-    <span class="fragment-mono text-[38px] font-medium mb-8 leading-none text-white">Selegence</span>
-    <span class="mb-8"></span>
-    <span class="text-[18px] font-medium mb-0 text-white">The Ultimate</span>
-    <span class="text-[18px] font-medium mb-2 text-white">No-Code Platform</span>
-    <span class="text-[10px] font-normal text-gray-200 max-w-xs leading-snug text-center mt-8 mb-2">
-      Be among the first to experience<br>
-      Selegence — the next-generation<br>
-      AI platform for website creation.<br>
-      Sign up now to get priority access before official release.
-    </span>
-    <!-- Email CTA Mobile -->
-    <form id="email-form-mobile" class="flex md:hidden mt-4 w-[95%] max-w-[270px] z-10 bg-white shadow rounded-full border border-gray-200 items-center flex-row" autocomplete="off" aria-label="Subscribe for early access">
-      <input type="email" id="email-input-mobile" name="email" required autocomplete="off" placeholder="Email" class="flex-1 h-[32px] px-4 rounded-full border-0 focus:ring-0 outline-none text-gray-900 text-xs bg-transparent overflow-x-auto whitespace-nowrap" aria-label="Email address">
-      <input type="text" name="website" class="hidden" aria-hidden="true" tabindex="-1">
-      <button type="submit" id="email-submit-mobile" class="h-[32px] px-4 bg-black text-white font-normal rounded-full text-xs transition disabled:opacity-60 flex items-center justify-center ml-2" aria-label="Submit email"><span class="text-xs font-normal">Submit</span></button>
-    </form>
-    <div id="email-message-mobile" class="mt-1 min-h-[18px] text-center text-xs"></div>
-  </div>
-</div>
-  </div>
-</div>
-    </div>
-</section>
-
-<!-- Selegence Pulse Title -->
-<section class="hidden md:block text-left py-16 px-0 text-white w-full max-w-screen-xl mx-auto">
-  <h2 class="text-[40px] lg:text-[60px] font-bold leading-[1.1] mb-4 pl-8">
-    <span class="bg-gradient-to-r from-pink-500 via-yellow-400 to-blue-500 bg-clip-text text-transparent">Selegence Pulse</span>
-    <span class="align-middle text-[22px] lg:text-[32px] font-normal text-white ml-2">— Intelligent AI Engine for Organic Website Generation</span>
-  </h2>
-  <h3 class="text-[20px] lg:text-[28px] font-normal leading-[1.2] pl-8">Not just templates. Not clones. A system that thinks — and builds.</h3>
-</section>
-
-<!-- DESKTOP SECTIONS -->
-<div class="hidden md:block">
-  <!-- Dander Section -->
-  <section class="dander-section">
-    <img src="./assets/dander.png" alt="Dander background" />
-    <div class="blocks-container">
-      <!-- Block 1 -->
-      <div class="block animate-block relative" data-delay="0">
-        <img src="./assets/Blockfirst.png" alt="First Block" />
-        <div class="absolute inset-0 -top-2 p-2 text-white text-left">
-          <p class="text-2xl font-normal mb-4">Your Personal Assistant.</p>
-          <p class="text-base font-light mb-4">Selegence Assistant builds on your thoughts and turns your idea into a clear website foundation.</p>
-          <p class="text-base font-light mb-4">In a simple chat, you describe your project - in your own words.</p>
-          <p class="text-base font-light">The AI helps out: asks questions, clarifies goals, suggests ideas, and shapes the structure and style.</p>
+  <!-- DESKTOP VERSION -->
+  <div class="hidden md:block">
+    <!-- Desktop Hero -->
+    <section class="relative w-full h-screen overflow-hidden flex items-center justify-center">
+      <img src="./assets/herodesktop.png" alt="Selegence – No-Code AI Website Builder" class="absolute inset-0 w-full h-full object-cover object-center" />
+      <div class="relative z-10 text-center text-white max-w-4xl px-8">
+        <div class="flex flex-col items-center justify-center">
+          <span class="text-4xl lg:text-5xl font-medium mb-2">Introducing</span>
+          <span class="fragment-mono text-2xl lg:text-3xl font-medium mb-8 leading-none">Selegence</span>
+          <span class="text-4xl lg:text-5xl font-medium mb-0">The Ultimate</span>
+          <span class="text-4xl lg:text-5xl font-medium mb-8">No-Code Platform</span>
+          <span class="text-lg lg:text-xl font-normal text-gray-200 max-w-2xl leading-relaxed text-center mt-8 mb-8">
+            Be among the first to experience<br>
+            Selegence — the next-generation<br>
+            AI platform for website creation.<br>
+            Sign up now to get priority access before official release.
+          </span>
+          <!-- Email CTA Desktop -->
+          <form id="email-form-desktop" class="flex mt-4 w-full max-w-lg relative" autocomplete="off" aria-label="Subscribe for early access">
+            <input type="email" id="email-input-desktop" name="email" required autocomplete="off" placeholder="Enter your email" class="w-full pr-32 py-3 pl-5 rounded-full border border-gray-300 focus:border-blue-400 outline-none text-gray-900 text-base bg-white" aria-label="Email address">
+            <input type="text" name="website" class="hidden" aria-hidden="true" tabindex="-1">
+            <button type="submit" id="email-submit-desktop" class="absolute right-1 top-1 bottom-1 px-7 bg-black text-white font-normal rounded-full transition disabled:opacity-60 text-sm" aria-label="Submit email">Submit</button>
+          </form>
+          <div id="email-message-desktop" class="mt-2 min-h-[24px] text-center text-sm"></div>
         </div>
       </div>
-      <!-- Block 2 -->
-      <div class="block animate-block relative" data-delay="0.2">
-        <img src="./assets/BlockSecond.png" alt="Second Block" />
-        <div class="absolute inset-0 -top-2 p-2 text-white text-left">
-          <p class="text-2xl font-normal mb-4">Selegence studies winning websites in your niche</p>
-          <p class="text-base font-light mb-4">It identifies what makes them effective — from content structure and visual rhythm to communication style and engagement tricks.</p>
-          <p class="text-base font-light">Then it distills these insights into clear patterns and principles the foundation for a site that looks unique but follows what works.</p>
-        </div>
-      </div>
-      <!-- Block 3 -->
-      <div class="block animate-block relative" data-delay="0.4">
-        <img src="./assets/Blockthird.png" alt="Third Block" />
-        <div class="absolute inset-0 -top-2 p-2 text-white text-left">
-          <p class="text-2xl font-normal mb-4">You get a live, editable website — built for growth</p>
-          <p class="text-base font-light mb-4">The site is fully responsive, SEO-friendly, and ready to go.</p>
-          <p class="text-base font-light mb-4">It looks great on any device, loads fast, and comes with animations.</p>
-          <p class="text-base font-light">After generation, you can easily tweak anything — text, blocks, layout — right in the visual editor.</p>
-        </div>
-      </div>
-      <!-- Block 4 -->
-      <div class="block animate-block relative" data-delay="0.6">
-        <img src="./assets/Blockfourth.png" alt="Fourth Block" />
-        <div class="absolute inset-0 -top-2 p-2 text-white text-left">
-          <p class="text-2xl font-normal mb-4">Your structure — built for results</p>
-          <p class="text-base font-light mb-4">Selegence turns insight into a custom layout, shaped around your goals and audience.</p>
-          <p class="text-base font-light mb-4">You get an organic structure where every part has a purpose to engage, guide, and convert. Each section is the result of meaning, intent, and proven practices arranged with logic and flow.</p>
-        </div>
-      </div>
-    </div>
-  </section>
+    </section>
 
-  <!-- Preview Section -->
-  <section class="preview-section">
-    <img src="./assets/prawa.png" alt="Background" class="preview-bg" />
-    <img src="./assets/Previewtop.png" alt="Preview" class="preview-top" />
-  </section>
+    <!-- Selegence Pulse Title -->
+    <section class="text-left py-16 px-8 text-white w-full max-w-screen-xl mx-auto">
+      <h2 class="text-4xl lg:text-6xl font-bold leading-tight mb-4">
+        <span class="bg-gradient-to-r from-pink-500 via-yellow-400 to-blue-500 bg-clip-text text-transparent">Selegence Pulse</span>
+        <span class="text-2xl lg:text-3xl font-normal text-white ml-4">— Intelligent AI Engine for Organic Website Generation</span>
+      </h2>
+      <h3 class="text-xl lg:text-2xl font-normal leading-relaxed">Not just templates. Not clones. A system that thinks — and builds.</h3>
+    </section>
 
-  <!-- Editor Section -->
-  <section class="editor-section">
-    <img src="./assets/plaha.png" alt="Background" class="editor-bg" />
-    <div class="w-full max-w-screen-xl mx-auto px-8 text-white flex flex-col items-start relative z-10">
-        <div class="text-left mb-12">
-            <h2 class="text-4xl md:text-5xl font-bold">
-              <span class="bg-gradient-to-r from-indigo-400 via-pink-500 to-yellow-400 bg-clip-text text-transparent">Selegence Editor</span>
-            </h2>
-            <p class="mt-4 text-lg md:text-xl text-gray-300 text-center mx-auto w-full max-w-2xl">Full control over your site with total creative freedom.</p>
-        </div>
-        <div class="editor-blocks">
-            <div class="editor-block animate-editor-block relative" data-delay="0">
-                <img src="./assets/BlockEditorFirstDesktop.png" alt="Editor First" />
-                <div class="absolute inset-0 flex items-center justify-center p-4 text-center">
-                    <p class="text-lg">Edit content and structure<br>directly in the interface</p>
-                </div>
-            </div>
-            <div class="editor-block animate-editor-block relative" data-delay="0.3">
-                <img src="./assets/BlockEditorSecondDesktop.png" alt="Editor Second" />
-                <div class="absolute inset-0 flex items-center justify-center p-4 text-center">
-                    <p class="text-lg">Customize styles, animations, and<br>layout blocks to match your vision</p>
-                </div>
-            </div>
-            <div class="editor-block animate-editor-block relative" data-delay="0.6">
-                <img src="./assets/BlockEditorThirdDesktop.png" alt="Editor Third" />
-                <div class="absolute inset-0 flex items-center justify-center p-4 text-center">
-                    <p class="text-lg">Preview how your site looks<br>on different devices</p>
-                </div>
-            </div>
-        </div>
-        <div class="text-center mt-8">
-            <p class="text-lg md:text-xl w-full max-w-2xl mx-auto">Switch between visual and AI-assisted editing<br>whatever works best for you.</p>
-        </div>
-    </div>
-  </section>
-
-  <!-- Editor Preview Section -->
-  <section class="editor-preview-section">
-    <div class="editor-preview-container">
-      <img src="./assets/craga.png" alt="Background" class="editor-background">
-      <div class="editor-preview-wrapper">
-        <img src="./assets/EditorPreview.png" alt="Editor Preview" class="editor-preview">
-        <img src="./assets/animation.png" alt="Cursor Animation" class="cursor-animation">
-      </div>
-    </div>
-  </section>
-</div>
-
-<!-- MOBILE SECTIONS -->
-<div class="md:hidden">
-  <!-- Mobile: 4 Blocks Section -->
-  <div class="relative w-full bg-no-repeat bg-cover bg-center" style="background-image: url('./assets/esara2back.png');">
-    <div class="pt-[32px] px-4 pb-6 space-y-8">
-      <!-- Block 1 -->
-      <div class="relative mobile-block-animate">
-        <img src="./assets/antanablockfirst.png" alt="Antana Block First" class="w-full h-auto mobile-image-animate">
-        <div class="absolute inset-0 p-4 text-white text-left flex flex-col justify-center">
-          <h2 class="text-[14px] font-semibold mb-6 leading-[20px] mobile-text-animate">Your Personal Assistant.</h2>
-          <h4 class="text-[11px] font-normal leading-[15px] mb-[2px] mobile-text-animate mobile-animate-delay-1">Selegence Assistant builds on your thoughts and turns your idea into a clear website foundation.</h4>
-          <h4 class="text-[11px] font-normal leading-[15px] mb-[2px] mobile-text-animate mobile-animate-delay-2">In a simple chat, you describe your project - in your own words.</h4>
-          <h4 class="text-[11px] font-normal leading-[15px] mobile-text-animate mobile-animate-delay-3">The AI helps out: asks questions, clarifies goals, suggests ideas, and shapes the structure and style.</h4>
-        </div>
-      </div>
-      <!-- Block 2 -->
-      <div class="relative mobile-block-animate">
-        <img src="./assets/saratogeusecondblock.png" alt="Saratogeuse Condblock" class="w-full h-auto mobile-image-animate">
-        <div class="absolute inset-0 p-4 text-white text-left flex flex-col justify-center">
-          <h2 class="text-[14px] font-semibold mb-6 leading-[20px] mobile-text-animate">Selegence studies winning websites in your niche</h2>
-          <h4 class="text-[11px] font-normal leading-[15px] mb-[2px] mobile-text-animate mobile-animate-delay-1">It identifies what makes them effective — from content structure and visual rhythm to communication style and engagement tricks.</h4>
-          <h4 class="text-[11px] font-normal leading-[15px] mobile-text-animate mobile-animate-delay-2">Then it distills these insights into clear patterns and principles the foundation for a site that looks unique but follows what works.</h4>
-        </div>
-      </div>
-      <!-- Block 3 -->
-      <div class="relative mobile-block-animate">
-        <img src="./assets/turanblockthird.png" alt="Turan Third Block" class="w-full h-auto mobile-image-animate">
-        <div class="absolute inset-0 p-4 text-white text-left flex flex-col justify-center">
-          <h2 class="text-[14px] font-semibold mb-6 leading-[20px] mobile-text-animate">You get a live, editable website — built for growth</h2>
-          <h4 class="text-[11px] font-normal leading-[15px] mb-[2px] mobile-text-animate mobile-animate-delay-1">The site is fully responsive, SEO-friendly, and ready to go.</h4>
-          <h4 class="text-[11px] font-normal leading-[15px] mb-[2px] mobile-text-animate mobile-animate-delay-2">It looks great on any device, loads fast, and comes with animations.</h4>
-          <h4 class="text-[11px] font-normal leading-[15px] mobile-text-animate mobile-animate-delay-3">After generation, you can easily tweak anything — text, blocks, layout — right in the visual editor.</h4>
-        </div>
-      </div>
-      <!-- Block 4 -->
-      <div class="relative mobile-block-animate">
-        <img src="./assets/blockfourthphone.png" alt="Block Fourth Phone" class="w-full h-auto mobile-image-animate">
-        <div class="absolute inset-0 p-4 text-white text-left flex flex-col justify-center">
-          <h2 class="text-[14px] font-semibold mb-6 leading-[20px] mobile-text-animate">Your structure — built for results</h2>
-          <h4 class="text-[11px] font-normal leading-[15px] mb-[2px] mobile-text-animate mobile-animate-delay-1">Selegence turns insight into a custom layout, shaped around your goals and audience.</h4>
-          <h4 class="text-[11px] font-normal leading-[15px] mobile-text-animate mobile-animate-delay-2">You get an organic structure where every part has a purpose to engage, guide, and convert. Each section is the result of meaning, intent, and proven practices arranged with logic and flow.</h4>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Mobile: Visual Preview Section -->
-  <div class="relative w-full bg-no-repeat bg-cover bg-center pt-10 pb-12" style="background-image: url('./assets/rynnerback.png');">
-    <div class="px-4 flex flex-col items-center space-y-10">
-      <img src="./assets/ChatPreviewPhone.png" alt="Chat Preview" class="w-full max-w-sm h-auto mobile-image-animate">
-      <img src="./assets/PhonePreview2.png" alt="Phone Preview 2" class="w-full max-w-sm h-auto mobile-image-animate mobile-animate-delay-1">
-    </div>
-  </div>
-
-  <!-- Mobile: Intro Text for Editor -->
-  <div class="px-4 py-12 text-center text-white">
-    <div class="flex flex-col items-center space-y-6">
-      <h2 class="text-[12px] leading-[28px] mobile-text-animate">Selegence it's a flexible tool that adapts to your device.</h2>
-      <h2 class="text-[12px] leading-[28px] mobile-text-animate mobile-animate-delay-1">On mobile — AI helps you edit your site directly through chat.</h2>
-      <h2 class="text-[12px] leading-[28px] mobile-text-animate mobile-animate-delay-2">On desktop — a powerful visual interface.</h2>
-    </div>
-  </div>
-
-  <div class="relative w-full bg-no-repeat bg-cover bg-center text-white" style="background-image: url('./assets/togue.png');">
-    <div class="px-4 pt-24 pb-16">
-      <div class="text-left mb-12">
-        <h2 class="text-[18px] sm:text-[22px] md:text-[28px] lg:text-[36px] font-medium leading-[24px] sm:leading-[28px] md:leading-[36px] lg:leading-[44px] mobile-gradient-text-animate">
-          <span class="bg-gradient-to-r from-indigo-400 via-pink-500 to-yellow-400 bg-clip-text text-transparent">Selegence Editor</span>
-        </h2>
-        <h3 class="text-[12px] font-medium leading-[18px] max-w-3xl mx-auto text-gray-300 mobile-text-animate mobile-animate-delay-1">Full control over your site with total creative freedom.</h3>
-      </div>
-      <div class="flex flex-col items-center space-y-12">
+    <!-- Desktop Blocks Section -->
+    <section class="relative w-full min-h-screen bg-cover bg-center flex items-center justify-center py-20" style="background-image: url('./assets/dander.png');">
+      <div class="grid grid-cols-2 gap-8 max-w-6xl mx-auto px-8">
         <!-- Block 1 -->
-        <div class="relative w-full max-w-[18rem] mobile-block-animate">
-          <img src="./assets/blockeditorfirst.png" alt="Editor Block 1" class="w-full h-auto mobile-image-animate">
-          <div class="absolute inset-0 p-4 flex items-center justify-center text-center">
-            <h4 class="text-[12px] font-normal leading-[18px] mobile-text-animate">Edit content and structure directly in the interface</h4>
+        <div class="relative bg-transparent rounded-2xl p-4 transition-all duration-300 hover:scale-105">
+          <img src="./assets/Blockfirst.png" alt="First Block" class="w-full h-auto" />
+          <div class="absolute inset-0 p-6 text-white text-left flex flex-col justify-center">
+            <p class="text-2xl font-normal mb-4">Your Personal Assistant.</p>
+            <p class="text-base font-light mb-4">Selegence Assistant builds on your thoughts and turns your idea into a clear website foundation.</p>
+            <p class="text-base font-light mb-4">In a simple chat, you describe your project - in your own words.</p>
+            <p class="text-base font-light">The AI helps out: asks questions, clarifies goals, suggests ideas, and shapes the structure and style.</p>
           </div>
         </div>
         <!-- Block 2 -->
-        <div class="relative w-full max-w-[18rem] mobile-block-animate">
-          <img src="./assets/blockeditorsecond.png" alt="Editor Block 2" class="w-full h-auto mobile-image-animate">
-          <div class="absolute inset-0 p-4 flex items-center justify-center text-center">
-            <h4 class="text-[12px] font-normal leading-[18px] mobile-text-animate">Customize styles, animations, and layout blocks to match your vision</h4>
+        <div class="relative bg-transparent rounded-2xl p-4 transition-all duration-300 hover:scale-105">
+          <img src="./assets/BlockSecond.png" alt="Second Block" class="w-full h-auto" />
+          <div class="absolute inset-0 p-6 text-white text-left flex flex-col justify-center">
+            <p class="text-2xl font-normal mb-4">Selegence studies winning websites in your niche</p>
+            <p class="text-base font-light mb-4">It identifies what makes them effective — from content structure and visual rhythm to communication style and engagement tricks.</p>
+            <p class="text-base font-light">Then it distills these insights into clear patterns and principles the foundation for a site that looks unique but follows what works.</p>
           </div>
         </div>
         <!-- Block 3 -->
-        <div class="relative w-full max-w-[18rem] mobile-block-animate">
-          <img src="./assets/blockeditorthird.png" alt="Editor Block 3" class="w-full h-auto mobile-image-animate">
-          <div class="absolute inset-0 p-4 flex items-center justify-center text-center">
-            <h4 class="text-[12px] font-normal leading-[18px] mobile-text-animate">Preview how your site looks on different devices</h4>
+        <div class="relative bg-transparent rounded-2xl p-4 transition-all duration-300 hover:scale-105">
+          <img src="./assets/Blockthird.png" alt="Third Block" class="w-full h-auto" />
+          <div class="absolute inset-0 p-6 text-white text-left flex flex-col justify-center">
+            <p class="text-2xl font-normal mb-4">You get a live, editable website — built for growth</p>
+            <p class="text-base font-light mb-4">The site is fully responsive, SEO-friendly, and ready to go.</p>
+            <p class="text-base font-light mb-4">It looks great on any device, loads fast, and comes with animations.</p>
+            <p class="text-base font-light">After generation, you can easily tweak anything — text, blocks, layout — right in the visual editor.</p>
+          </div>
+        </div>
+        <!-- Block 4 -->
+        <div class="relative bg-transparent rounded-2xl p-4 transition-all duration-300 hover:scale-105">
+          <img src="./assets/Blockfourth.png" alt="Fourth Block" class="w-full h-auto" />
+          <div class="absolute inset-0 p-6 text-white text-left flex flex-col justify-center">
+            <p class="text-2xl font-normal mb-4">Your structure — built for results</p>
+            <p class="text-base font-light mb-4">Selegence turns insight into a custom layout, shaped around your goals and audience.</p>
+            <p class="text-base font-light mb-4">You get an organic structure where every part has a purpose to engage, guide, and convert. Each section is the result of meaning, intent, and proven practices arranged with logic and flow.</p>
           </div>
         </div>
       </div>
-      <div class="text-left mt-4">
-        <h3 class="text-[12px] font-medium leading-[18px] mobile-text-animate">Switch between visual and AI-assisted editing<br>whatever works best for you.</h3>
-      </div>
-    </div>
-  </div>
+    </section>
 
-  <!-- Mobile: Final Preview Section -->
-  <div class="py-12 px-4 flex flex-col items-center space-y-10">
-    <img src="./assets/TopPreviewPhone.png" alt="Top Preview" class="w-full max-w-md h-auto mobile-image-animate">
-    <img src="./assets/EditorPreviewPhone.png" alt="Editor Preview" class="w-full max-w-md h-auto mobile-image-animate mobile-animate-delay-1">
-  </div>
+    <!-- Preview Section -->
+    <section class="relative w-full min-h-screen bg-cover bg-center flex items-center justify-center py-20" style="background-image: url('./assets/prawa.png');">
+      <img src="./assets/Previewtop.png" alt="Preview" class="w-11/12 max-w-6xl h-auto" />
+    </section>
 
-  <!-- Mobile: After Generation Text -->
-  <div class="text-center text-white py-0 px-4 mb-0">
-    <h2 class="text-[20px] font-semibold leading-[24px] mb-6 mobile-text-animate">After Generation</h2>
-    <h2 class="text-[20px] fragment-mono font-semibold leading-[24px] mb-6 mobile-gradient-text-animate">
-      <span class="bg-gradient-to-r from-green-400 via-purple-500 to-red-500 bg-clip-text text-transparent">Selegence</span>
-    </h2>
-    <h2 class="text-[20px] font-semibold leading-[24px] mb-6 mobile-text-animate mobile-animate-delay-1">Takes It Further</h2>
-    <h2 class="text-[11px] font-normal leading-[15px] mb-4 max-w-3xl mx-auto text-gray-300 mobile-text-animate mobile-animate-delay-2">Selegence doesn't stop at generation. The platform helps you bring your project to completion: optimize it, publish it, and track its performance.</h2>
-  </div>
-
-  <!-- Mobile: Final Blocks -->
-  <div class="p-0 px-4 flex flex-col items-center space-y-8">
-    <img src="./assets/rectangle 105.png" alt="Separator" class="w-full max-w-md h-auto mb-2">
-    <!-- Deployment Block -->
-    <div class="relative w-full max-w-[18rem] mobile-block-animate">
-      <img src="./assets/blockdeploymentphone.png" alt="Deployment Block" class="w-full h-auto mobile-image-animate">
-      <div class="absolute inset-0 p-4 text-white text-left flex flex-col justify-center">
-        <h3 class="text-xl font-medium mb-2">Deployment</h3>
-        <p class="text-[13px] mb-2">Easily publish your site and make it live.</p>
-        <ul class="list-disc list-inside text-xs space-y-1">
-          <li>One-click deployment to Vercel</li>
-          <li>Custom domain support</li>
-          <li>Shareable public link.</li>
-        </ul>
-      </div>
-    </div>
-    <!-- SEO Block -->
-    <div class="relative w-full max-w-[18rem] mobile-block-animate">
-      <img src="./assets/blockseophone.png" alt="SEO Block" class="w-full h-auto mobile-image-animate">
-      <div class="absolute inset-0 p-4 text-white text-left flex flex-col justify-center">
-        <h3 class="text-xl font-medium mb-2">SEO</h3>
-        <p class="text-[13px] mb-2">Your site is optimized for search engines.</p>
-        <ul class="list-disc list-inside text-xs space-y-1">
-          <li>Structured tags, titles, and meta descriptions</li>
-          <li>Semantic HTML for better indexing</li>
-          <li>Ready for visibility and ranking.</li>
-        </ul>
-      </div>
-    </div>
-    <!-- Analytics Block -->
-    <div class="relative w-full max-w-[18rem] mobile-block-animate">
-      <img src="./assets/blockanalyticsphone.png" alt="Analytics Block" class="w-full h-auto mobile-image-animate">
-      <div class="absolute inset-0 p-4 text-white text-left flex flex-col justify-center">
-        <h3 class="text-xl font-medium mb-2">Analytics</h3>
-        <p class="text-[13px] mb-2">Understand your audience and their behavior.</p>
-        <ul class="list-disc list-inside text-xs space-y-1">
-          <li>Page views and traffic insights</li>
-          <li>Integration with Google Analytics</li>
-          <li>Simple, clear metrics inside the dashboard</li>
-        </ul>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- DESKTOP SECTIONS (continued) -->
-<div class="hidden md:block">
-  <section class="backlio-section">
-    <img src="./assets/backlio.png" alt="Background" class="backlio-bg" />
-    <div class="relative z-10 text-center text-white py-20 px-4">
-      <h2 class="text-4xl md:text-5xl font-medium mb-16">After Generation</h2>
-      <h2 class="text-5xl lg:text-7xl fragment-mono font-bold mb-16">
-        <span class="bg-gradient-to-r from-green-400 via-purple-500 to-red-500 bg-clip-text text-transparent">Selegence</span>
-      </h2>
-      <h2 class="text-4xl md:text-5xl font-medium mb-16">Takes It Further</h2>
-      <p class="mt-6 text-lg md:text-xl max-w-3xl mx-auto text-gray-300">
-        Selegence doesn't stop at generation. The platform helps you bring your project to completion: optimize it, publish it, and track its performance.
-      </p>
-    </div>
-  </section>
-
-  <section class="riseback-section">
-    <img src="./assets/riseback.png" alt="Background" class="riseback-bg" />
-    <div class="deployment-blocks">
-        <div class="deployment-block animate-deployment-block relative" data-delay="0">
-            <img src="./assets/BlockDeployment.png" alt="Deployment" />
-            <div class="absolute inset-0 p-6 text-white text-left flex flex-col justify-center">
-                <h3 class="text-2xl font-medium mb-4">Deployment</h3>
-                <p class="mb-4">Easily publish your site and make it live.</p>
-                <ul class="list-disc list-inside text-sm space-y-2">
-                    <li>One-click deployment to Vercel</li>
-                    <li>Custom domain support</li>
-                    <li>Shareable public link.</li>
-                </ul>
-            </div>
+    <!-- Editor Section -->
+    <section class="relative w-full py-20 px-8 text-white" style="background-image: url('./assets/plaha.png'); background-size: cover; background-position: center;">
+      <div class="w-full max-w-screen-xl mx-auto flex flex-col items-start relative z-10">
+        <div class="text-left mb-12 w-full">
+          <h2 class="text-4xl md:text-5xl font-bold">
+            <span class="bg-gradient-to-r from-indigo-400 via-pink-500 to-yellow-400 bg-clip-text text-transparent">Selegence Editor</span>
+          </h2>
+          <p class="mt-4 text-lg md:text-xl text-gray-300 text-center mx-auto w-full max-w-2xl">Full control over your site with total creative freedom.</p>
         </div>
-        <div class="deployment-block animate-deployment-block relative" data-delay="0.3">
-            <img src="./assets/BlockSeo.png" alt="SEO" />
-            <div class="absolute inset-0 p-6 text-white text-left flex flex-col justify-center">
-                <h3 class="text-2xl font-medium mb-4">SEO</h3>
-                <p class="mb-4">Your site is optimized for search engines.</p>
-                <ul class="list-disc list-inside text-sm space-y-2">
-                    <li>Structured tags, titles, and meta descriptions</li>
-                    <li>Semantic HTML for better indexing</li>
-                    <li>Ready for visibility and ranking.</li>
-                </ul>
+        <div class="flex justify-between items-center w-full max-w-5xl mx-auto gap-8">
+          <div class="relative w-80 h-24 transition-all duration-300 hover:scale-105">
+            <img src="./assets/BlockEditorFirstDesktop.png" alt="Editor First" class="w-full h-full object-contain" />
+            <div class="absolute inset-0 flex items-center justify-center p-4 text-center">
+              <p class="text-lg">Edit content and structure<br>directly in the interface</p>
             </div>
-        </div>
-        <div class="deployment-block animate-deployment-block relative" data-delay="0.6">
-            <img src="./assets/BlockAnalytics.png" alt="Analytics" />
-            <div class="absolute inset-0 p-6 text-white text-left flex flex-col justify-center">
-                <h3 class="text-2xl font-medium mb-4">Analytics</h3>
-                <p class="mb-4">Understand your audience and their behavior.</p>
-                <ul class="list-disc list-inside text-sm space-y-2">
-                    <li>Page views and traffic insights</li>
-                    <li>Integration with Google Analytics</li>
-                    <li>Simple, clear metrics inside the dashboard</li>
-                </ul>
+          </div>
+          <div class="relative w-80 h-24 transition-all duration-300 hover:scale-105">
+            <img src="./assets/BlockEditorSecondDesktop.png" alt="Editor Second" class="w-full h-full object-contain" />
+            <div class="absolute inset-0 flex items-center justify-center p-4 text-center">
+              <p class="text-lg">Customize styles, animations, and<br>layout blocks to match your vision</p>
             </div>
+          </div>
+          <div class="relative w-80 h-24 transition-all duration-300 hover:scale-105">
+            <img src="./assets/BlockEditorThirdDesktop.png" alt="Editor Third" class="w-full h-full object-contain" />
+            <div class="absolute inset-0 flex items-center justify-center p-4 text-center">
+              <p class="text-lg">Preview how your site looks<br>on different devices</p>
+            </div>
+          </div>
         </div>
-    </div>
-  </section>
-</div>
+        <div class="text-center mt-8 w-full">
+          <p class="text-lg md:text-xl w-full max-w-2xl mx-auto">Switch between visual and AI-assisted editing<br>whatever works best for you.</p>
+        </div>
+      </div>
+    </section>
 
-<style>
-  .dander-section {
-    position: relative;
-    width: 100%;
-    height: 100vh;
-    overflow: hidden;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin-top: 8rem;
-    padding-top: 2rem;
-  }
-  .dander-section img {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    object-position: center;
-  }
-  .blocks-container {
-    position: relative;
-    z-index: 2;
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 2rem;
-    max-width: 1200px;
-    padding: 2rem;
-    margin: 0 auto;
-  }
-  .block {
-    background: transparent;
-    border-radius: 1rem;
-    padding: 0;
-    transition: all 0.3s ease;
-    opacity: 0;
-    transform: translateY(30px);
-  }
-  .block:hover {
-    transform: translateY(-15px) scale(1.05);
-  }
-  .block img {
-    position: relative;
-    width: 100%;
-    height: auto;
-    display: block;
-  }
-  .preview-section {
-    position: relative;
-    width: 100%;
-    height: 100vh;
-    overflow: hidden;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin-top: 4rem;
-  }
-  .preview-bg {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    object-position: center;
-    opacity: 0;
-    animation: fadeIn 1.5s ease forwards;
-  }
-  .preview-top {
-    position: relative;
-    width: 95%;
-    max-width: 1400px;
-    height: auto;
-    opacity: 0;
-    transform: translateY(100px) scale(0.9);
-  }
-  .preview-top.visible {
-    animation: revealTop 2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
-  }
-    .editor-section {
-    position: relative;
-    width: 100%;
-    padding: 8rem 2rem;
-    color: white;
-  }
-  .editor-bg {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    object-position: center;
-    opacity: 0;
-    animation: fadeIn 1.5s ease forwards;
-  }
-  .editor-blocks {
-    position: relative;
-    z-index: 2;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    width: 90%;
-    max-width: 1400px;
-    margin: 0 auto;
-    gap: 2rem;
-  }
-  .editor-block {
-    opacity: 0;
-    transform: translateY(50px);
-    transition: all 0.3s ease;
-    width: 350px;
-    height: 100px;
-  }
-  .editor-block img {
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-    display: block;
-  }
-  .editor-block:hover {
-    transform: translateY(-15px) scale(1.05);
-  }
-  .editor-preview-section {
-    position: relative;
-    width: 100%;
-    height: 100vh;
-    overflow: hidden;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin-top: 0; /* Убираем верхний отступ */
-  }
-  .editor-preview-bg {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    object-position: center;
-    opacity: 0;
-    animation: fadeIn 1.5s ease forwards;
-  }
-  .editor-preview-container {
-    position: relative;
-    width: 95%;
-    max-width: 1400px;
-    margin: 0 auto;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    min-height: 600px; /* Добавляем минимальную высоту */
-  }
-  .editor-preview-wrapper {
-    position: relative;
-    width: 100%;
-    height: 100%;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-  }
-  .editor-preview {
-    position: relative;
-    width: 100%;
-    height: auto;
-    object-fit: contain;
-    display: block;
-    z-index: 2; /* Добавляем z-index чтобы быть поверх фона */
-  }
-  .editor-preview.visible {
-    animation: revealTop 2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
-  }
-  .editor-background {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    z-index: 1;
-  }
-  .cursor-animation {
-    position: absolute;
-    width: 170px;
-    height: auto;
-    z-index: 999;
-    left: 18%;
-    top: 55%;
-    transform: translateY(-50%);
-    pointer-events: none;
-    opacity: 1;
-    background: none;
-  }
-  @keyframes fadeIn {
-    from {
-      opacity: 0;
-    }
-    to {
-      opacity: 1;
-    }
-  }
-  @keyframes revealTop {
-    0% {
-      opacity: 0;
-      transform: translateY(100px) scale(0.9);
-    }
-    40% {
-      opacity: 0.7;
-      transform: translateY(-20px) scale(1.05);
-    }
-    70% {
-      opacity: 0.9;
-      transform: translateY(10px) scale(0.98);
-    }
-    100% {
-      opacity: 1;
-      transform: translateY(0) scale(1);
-    }
-  }
-  .cursor-animation {
-    animation: cursorMove 4s ease-in-out infinite;
-  }
-  .animate-block.visible {
-    animation: fadeInUp 1.2s ease forwards;
-  }
-  .animate-editor-block.visible {
-    animation: revealEditorBlock 1.2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
-  }
-  @keyframes fadeInUp {
-    from {
-      opacity: 0;
-      transform: translateY(30px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-  @keyframes revealEditorBlock {
-    0% {
-      opacity: 0;
-      transform: translateY(50px) scale(0.9);
-    }
-    50% {
-      opacity: 0.7;
-      transform: translateY(-10px) scale(1.1);
-    }
-    100% {
-      opacity: 1;
-      transform: translateY(0) scale(1);
-    }
-  }
-  .backlio-section {
-    position: relative;
-    width: 100%;
-    height: 100vh;
-    overflow: hidden;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  .backlio-bg {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    object-position: center;
-    opacity: 0;
-    animation: fadeIn 1.5s ease forwards;
-  }
-  .riseback-section {
-    position: relative;
-    width: 100%;
-    height: 100vh;
-    overflow: hidden;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  .riseback-bg {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    object-position: center;
-    opacity: 0;
-    animation: fadeIn 1.5s ease forwards;
-  }
-  .deployment-blocks {
-    position: relative;
-    z-index: 2;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    width: 95%;
-    max-width: 2400px; /* Еще больше увеличиваем максимальную ширину */
-    margin: 0 auto;
-    gap: 6rem; /* Увеличиваем расстояние между блоками */
-  }
-  .deployment-block {
-    opacity: 0;
-    transform: translateY(30px);
-    transition: all 0.3s ease;
-    width: 1000px; /* Еще больше увеличиваем ширину */
-    height: 400px; /* Еще больше увеличиваем высоту */
-  }
-  .deployment-block img {
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-    display: block;
-  }
-  .deployment-block:hover {
-    transform: translateY(-15px) scale(1.05);
-  }
-  @keyframes revealDeploymentBlock {
-    from {
-      opacity: 0;
-      transform: translateY(30px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-  .animate-deployment-block.visible {
-    animation: fadeInUp 1.2s ease forwards;
-  }
+    <!-- Editor Preview Section -->
+    <section class="relative w-full min-h-screen bg-cover bg-center flex items-center justify-center py-20" style="background-image: url('./assets/craga.png');">
+      <div class="relative w-11/12 max-w-6xl flex justify-center items-center">
+        <img src="./assets/EditorPreview.png" alt="Editor Preview" class="w-full h-auto relative z-10" />
+        <img src="./assets/animation.png" alt="Cursor Animation" class="absolute w-40 h-auto z-20 left-1/4 top-1/2 transform -translate-y-1/2" />
+      </div>
+    </section>
 
-  /* Обновляем анимации для всех секций */
-  .preview-section, .editor-section, .editor-preview-section, .deployment-block,
-  .animate-block, .animate-editor-block {
-    opacity: 0;
-    transform: translateY(30px);
-    transition: all 0.3s ease;
-  }
+    <!-- After Generation Section -->
+    <section class="relative w-full min-h-screen bg-cover bg-center flex items-center justify-center py-20" style="background-image: url('./assets/backlio.png');">
+      <div class="relative z-10 text-center text-white py-20 px-4">
+        <h2 class="text-4xl md:text-5xl font-medium mb-16">After Generation</h2>
+        <h2 class="text-5xl lg:text-7xl fragment-mono font-bold mb-16">
+          <span class="bg-gradient-to-r from-green-400 via-purple-500 to-red-500 bg-clip-text text-transparent">Selegence</span>
+        </h2>
+        <h2 class="text-4xl md:text-5xl font-medium mb-16">Takes It Further</h2>
+        <p class="mt-6 text-lg md:text-xl max-w-3xl mx-auto text-gray-300">
+          Selegence doesn't stop at generation. The platform helps you bring your project to completion: optimize it, publish it, and track its performance.
+        </p>
+      </div>
+    </section>
 
-  .preview-section.visible, .editor-section.visible, .editor-preview-section.visible, 
-  .deployment-block.visible, .animate-block.visible, .animate-editor-block.visible {
-    animation: fadeInUp 1.2s ease forwards;
-  }
-
-  /* Добавляем стили для изображений внутри секций */
-  .preview-top, .editor-preview {
-    opacity: 0;
-    transform: translateY(30px);
-    transition: all 0.3s ease;
-  }
-
-  .preview-top.visible, .editor-preview.visible {
-    animation: fadeInUp 1.2s ease forwards;
-  }
-</style>
-
-<script>
-  document.addEventListener('DOMContentLoaded', function() {
-    const observer = new IntersectionObserver((entries) => {
-      entries.forEach(entry => {
-        if (entry.isIntersecting) {
-          const element = entry.target;
-          const delay = element.getAttribute('data-delay') || 0;
-          
-          setTimeout(() => {
-            element.classList.add('visible');
-          }, delay * 1000);
-
-          // Если это секция, также анимируем её содержимое
-          if (element.classList.contains('preview-section') || 
-              element.classList.contains('editor-preview-section')) {
-            const content = element.querySelector('.preview-top, .editor-preview, .cursor-animation');
-            if (content) {
-              setTimeout(() => {
-                content.classList.add('visible');
-              }, 300);
-            }
-          }
-        }
-      });
-    }, {
-      threshold: 0.1
-    });
-
-    // Наблюдаем за всеми секциями и блоками
-    document.querySelectorAll('.preview-section, .editor-section, .editor-preview-section, .deployment-block, .animate-block, .animate-editor-block').forEach(section => {
-      observer.observe(section);
-    });
-  });
-</script>
-  <!-- Supabase JS SDK (CDN) -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
-  <!-- Модуль с функциями работы с Supabase -->
-  <script type="module" src="./supabase.js"></script>
-  <!-- Email form logic -->
-  <script type="module">
-    // Импортируем функции для работы с Supabase и валидации
-    import { isDuplicateEmail, addEmail } from './supabase.js';
-    import { validateEmail, setupRealTimeValidation } from './email-validation.js';
-
-    // Универсальный обработчик для обеих форм
-    function setupEmailForm(formId, inputId, submitId, messageId) {
-      const form = document.getElementById(formId);
-      const input = document.getElementById(inputId);
-      const submit = document.getElementById(submitId);
-      const message = document.getElementById(messageId);
-      
-      // Проверка наличия всех элементов
-      if (!form || !input || !submit || !message) {
-        console.error(`Form elements not found for ${formId}`);
-        return;
-      }
-
-      console.log(`Setting up form: ${formId}`);
-
-      // Настраиваем валидацию в реальном времени
-      setupRealTimeValidation(input, message);
-
-      form.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        message.textContent = '';
-
-        // Проверка honeypot-поля
-        const honeypot = form.querySelector('input[name="website"]');
-        if (honeypot && honeypot.value) {
-          console.log('Bot detected in form:', formId);
-          message.textContent = 'Thank you! You are on the list.';
-          message.className = 'text-green-500 mt-2 text-center';
-          form.reset();
-          return;
-        }
-
-        const email = input.value.trim();
-
-        // Проверка пустоты
-        if (!email) {
-          message.textContent = 'Please enter your email.';
-          message.className = 'text-red-500 mt-2 text-center';
-          return;
-        }
-
-        // Полная валидация email
-        const validationResult = await validateEmail(email);
-        if (!validationResult.isValid) {
-          message.textContent = validationResult.error;
-          message.className = 'text-red-500 mt-2 text-center';
-          return;
-        }
-
-        submit.disabled = true;
-        submit.textContent = '...';
-
-        try {
-          // Проверка дубликата
-          const exists = await isDuplicateEmail(email);
-          if (exists) {
-            message.textContent = 'This email is already subscribed.';
-            message.className = 'text-yellow-500 mt-2 text-center';
-          } else {
-            await addEmail(email);
-            message.textContent = 'Thank you! You are on the list.';
-            message.className = 'text-green-500 mt-2 text-center';
-            form.reset();
-          }
-        } catch (err) {
-          console.error('Error in form submission:', formId, err);
-          message.textContent = 'Network or server error. Please try again.';
-          message.className = 'text-red-500 mt-2 text-center';
-        } finally {
-          submit.disabled = false;
-          submit.textContent = 'Submit';
-        }
-      });
-    }
-
-    // Инициализация всех форм
-    document.addEventListener('DOMContentLoaded', () => {
-      console.log('Initializing email forms...');
-      
-      // Desktop
-      setupEmailForm('email-form-desktop', 'email-input-desktop', 'email-submit-desktop', 'email-message-desktop');
-      // Mobile
-      setupEmailForm('email-form-mobile', 'email-input-mobile', 'email-submit-mobile', 'email-message-mobile');
-      // Bottom Desktop
-      setupEmailForm('email-form-bottom', 'email-input-bottom', 'email-submit-bottom', 'email-message-bottom');
-      // Bottom Mobile
-      setupEmailForm('email-form-bottom-mobile', 'email-input-bottom-mobile', 'email-submit-bottom-mobile', 'email-message-bottom-mobile');
-    });
-  </script>
-<!-- Bottom Email CTA Section -->
-<section class="w-full flex flex-col items-center justify-center py-12 px-4 bg-transparent">
-  <div class="max-w-xl w-full">
-    <h2 class="font-light text-white text-lg md:text-3xl text-center mb-2" style="font-family: 'Figtree', sans-serif;">
-      Join the closed launch of Selegence<br class="hidden md:block"> explore the platform before its public release.
-    </h2>
-    <h3 class="font-light text-xs md:text-base text-center text-gray-300 mb-4" style="font-family: 'Figtree', sans-serif;">
-      Leave your email and stay tuned — we'll reach out as soon as Selegence goes live.
-    </h3>
-    <form id="email-form-bottom" class="hidden md:flex w-full max-w-md mx-auto relative" autocomplete="off" aria-label="Join Selegence closed launch">
-      <input type="email" id="email-input-bottom" name="email" required autocomplete="off" placeholder="Enter your email" class="w-full pr-32 py-2 pl-5 rounded-full border border-gray-300 focus:border-blue-400 outline-none text-gray-900 text-base bg-white overflow-x-auto whitespace-nowrap max-w-md text-left font-[300] font-light" aria-label="Email address" style="font-family: 'Figtree', sans-serif;">
-      <input type="text" name="website" class="hidden" aria-hidden="true" tabindex="-1">
-      <button type="submit" id="email-submit-bottom" class="absolute right-1 top-1 bottom-1 px-7 bg-black text-white font-normal rounded-full transition disabled:opacity-60 text-sm font-[300] font-light" aria-label="Submit email">Submit</button>
-    </form>
-    <form id="email-form-bottom-mobile" class="flex md:hidden mt-4 w-[95%] max-w-[270px] mx-auto z-10 bg-white shadow rounded-full border border-gray-200 items-center flex-row" autocomplete="off" aria-label="Join Selegence closed launch">
-      <input type="email" id="email-input-bottom-mobile" name="email" required autocomplete="off" placeholder="Email" class="flex-1 h-[32px] px-4 rounded-full border-0 focus:ring-0 outline-none text-gray-900 text-xs bg-transparent overflow-x-auto whitespace-nowrap font-[300] font-light" aria-label="Email address" style="font-family: 'Figtree', sans-serif;">
-      <input type="text" name="website" class="hidden" aria-hidden="true" tabindex="-1">
-      <button type="submit" id="email-submit-bottom-mobile" class="h-[32px] px-4 bg-black text-white font-normal rounded-full text-xs transition disabled:opacity-60 flex items-center justify-center ml-2 font-[300] font-light" aria-label="Submit email"><span class="text-xs font-normal">Submit</span></button>
-    </form>
-    <div id="email-message-bottom" class="mt-2 min-h-[24px] text-center text-sm font-[300] font-light"></div>
-    <div id="email-message-bottom-mobile" class="mt-2 min-h-[24px] text-center text-xs font-[300] font-light"></div>
+    <!-- Deployment Blocks Section -->
+    <section class="relative w-full min-h-screen bg-cover bg-center flex items-center justify-center py-20" style="background-image: url('./assets/riseback.png');">
+      <div class="flex justify-between items-center w-full max-w-7xl mx-auto gap-16 px-8">
+        <div class="relative w-80 h-96 transition-all duration-300 hover:scale-105">
+          <img src="./assets/BlockDeployment.png" alt="Deployment" class="w-full h-full object-contain" />
+          <div class="absolute inset-0 p-6 text-white text-left flex flex-col justify-center">
+            <h3 class="text-2xl font-medium mb-4">Deployment</h3>
+            <p class="mb-4">Easily publish your site and make it live.</p>
+            <ul class="list-disc list-inside text-sm space-y-2">
+              <li>One-click deployment to Vercel</li>
+              <li>Custom domain support</li>
+              <li>Shareable public link.</li>
+            </ul>
+          </div>
+        </div>
+        <div class="relative w-80 h-96 transition-all duration-300 hover:scale-105">
+          <img src="./assets/BlockSeo.png" alt="SEO" class="w-full h-full object-contain" />
+          <div class="absolute inset-0 p-6 text-white text-left flex flex-col justify-center">
+            <h3 class="text-2xl font-medium mb-4">SEO</h3>
+            <p class="mb-4">Your site is optimized for search engines.</p>
+            <ul class="list-disc list-inside text-sm space-y-2">
+              <li>Structured tags, titles, and meta descriptions</li>
+              <li>Semantic HTML for better indexing</li>
+              <li>Ready for visibility and ranking.</li>
+            </ul>
+          </div>
+        </div>
+        <div class="relative w-80 h-96 transition-all duration-300 hover:scale-105">
+          <img src="./assets/BlockAnalytics.png" alt="Analytics" class="w-full h-full object-contain" />
+          <div class="absolute inset-0 p-6 text-white text-left flex flex-col justify-center">
+            <h3 class="text-2xl font-medium mb-4">Analytics</h3>
+            <p class="mb-4">Understand your audience and their behavior.</p>
+            <ul class="list-disc list-inside text-sm space-y-2">
+              <li>Page views and traffic insights</li>
+              <li>Integration with Google Analytics</li>
+              <li>Simple, clear metrics inside the dashboard</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+    <section class="w-full flex flex-col items-center justify-center py-12 px-4 bg-transparent">
+      <div class="max-w-xl w-full">
+        <h2 class="font-light text-white text-lg md:text-3xl text-center mb-2" style="font-family: 'Figtree', sans-serif;">
+          Join the closed launch of Selegence<br class="hidden md:block"> explore the platform before its public release.
+        </h2>
+        <h3 class="font-light text-xs md:text-base text-center text-gray-300 mb-4" style="font-family: 'Figtree', sans-serif;">
+          Leave your email and stay tuned — we'll reach out as soon as Selegence goes live.
+        </h3>
+        <form id="email-form-bottom" class="flex w-full max-w-md mx-auto relative" autocomplete="off" aria-label="Join Selegence closed launch">
+          <input type="email" id="email-input-bottom" name="email" required autocomplete="off" placeholder="Enter your email" class="w-full pr-32 py-2 pl-5 rounded-full border border-gray-300 focus:border-blue-400 outline-none text-gray-900 text-base bg-white overflow-x-auto whitespace-nowrap max-w-md text-left font-[300] font-light" aria-label="Email address" style="font-family: 'Figtree', sans-serif;">
+          <input type="text" name="website" class="hidden" aria-hidden="true" tabindex="-1">
+          <button type="submit" id="email-submit-bottom" class="absolute right-1 top-1 bottom-1 px-7 bg-black text-white font-normal rounded-full transition disabled:opacity-60 text-sm font-[300] font-light" aria-label="Submit email">Submit</button>
+        </form>
+        <div id="email-message-bottom" class="mt-2 min-h-[24px] text-center text-sm font-[300] font-light"></div>
+      </div>
+    </section>
+    <div class="w-full text-center text-xs md:text-sm text-gray-400 py-8" style="font-family: 'Figtree', sans-serif;">Contact: selegence25@gmail.com</div>
   </div>
-</section>
-<!-- Contact Info -->
-<div class="w-full text-center text-xs md:text-sm text-gray-400 py-8" style="font-family: 'Figtree', sans-serif;">Contact: selegence25@gmail.com</div>
 
-<script>
-  // Функция для проверки видимости элемента в viewport
-  function isElementInViewport(el) {
-    const rect = el.getBoundingClientRect();
-    return (
-      rect.top <= (window.innerHeight || document.documentElement.clientHeight) * 0.8 &&
-      rect.bottom >= 0
-    );
-  }
+  <!-- MOBILE VERSION -->
+  <div class="md:hidden">
+    <!-- Mobile Hero -->
+    <section class="relative min-h-[60vh]">
+      <img src="./assets/wandback.png" alt="Mobile Background" class="absolute inset-0 w-full h-full object-cover">
+      <div class="relative flex flex-col justify-start items-center pt-[36px]">
+        <div class="relative w-full flex justify-center">
+          <img src="./assets/phonelowe.png" alt="Mobile Foreground" class="max-w-[90%] h-auto">
+          <div class="absolute top-0 left-0 w-full h-full flex flex-col items-center pointer-events-none pb-2">
+            <div class="w-full flex flex-col items-center pt-12">
+              <span class="text-[18px] font-medium mb-1 text-white">Introducing</span>
+              <span class="mb-8"></span>
+              <span class="fragment-mono text-[38px] font-medium mb-8 leading-none text-white">Selegence</span>
+              <span class="mb-8"></span>
+              <span class="text-[18px] font-medium mb-0 text-white">The Ultimate</span>
+              <span class="text-[18px] font-medium mb-2 text-white">No-Code Platform</span>
+              <span class="text-[10px] font-normal text-gray-200 max-w-xs leading-snug text-center mt-8 mb-2">
+                Be among the first to experience<br>
+                Selegence — the next-generation<br>
+                AI platform for website creation.<br>
+                Sign up now to get priority access before official release.
+              </span>
+              <!-- Email CTA Mobile -->
+              <form id="email-form-mobile" class="flex md:hidden mt-4 w-[95%] max-w-[270px] z-10 bg-white shadow rounded-full border border-gray-200 items-center flex-row" autocomplete="off" aria-label="Subscribe for early access">
+                <input type="email" id="email-input-mobile" name="email" required autocomplete="off" placeholder="Email" class="flex-1 h-[32px] px-4 rounded-full border-0 focus:ring-0 outline-none text-gray-900 text-xs bg-transparent overflow-x-auto whitespace-nowrap" aria-label="Email address">
+                <input type="text" name="website" class="hidden" aria-hidden="true" tabindex="-1">
+                <button type="submit" id="email-submit-mobile" class="h-[32px] px-4 bg-black text-white font-normal rounded-full text-xs transition disabled:opacity-60 flex items-center justify-center ml-2" aria-label="Submit email"><span class="text-xs font-normal">Submit</span></button>
+              </form>
+              <div id="email-message-mobile" class="mt-1 min-h-[18px] text-center text-xs"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+    <!-- MOBILE SECTIONS -->
+    <div>
+      <!-- Mobile: 4 Blocks Section -->
+      <div class="relative w-full bg-no-repeat bg-cover bg-center" style="background-image: url('./assets/esara2back.png');">
+        <div class="pt-[32px] px-4 pb-6 space-y-8">
+          <!-- Block 1 -->
+          <div class="relative mobile-block-animate">
+            <img src="./assets/antanablockfirst.png" alt="Antana Block First" class="w-full h-auto mobile-image-animate">
+            <div class="absolute inset-0 p-4 text-white text-left flex flex-col justify-center">
+              <h2 class="text-[14px] font-semibold mb-6 leading-[20px] mobile-text-animate">Your Personal Assistant.</h2>
+              <h4 class="text-[11px] font-normal leading-[15px] mb-[2px] mobile-text-animate mobile-animate-delay-1">Selegence Assistant builds on your thoughts and turns your idea into a clear website foundation.</h4>
+              <h4 class="text-[11px] font-normal leading-[15px] mb-[2px] mobile-text-animate mobile-animate-delay-2">In a simple chat, you describe your project - in your own words.</h4>
+              <h4 class="text-[11px] font-normal leading-[15px] mobile-text-animate mobile-animate-delay-3">The AI helps out: asks questions, clarifies goals, suggests ideas, and shapes the structure and style.</h4>
+            </div>
+          </div>
+          <!-- Block 2 -->
+          <div class="relative mobile-block-animate">
+            <img src="./assets/saratogeusecondblock.png" alt="Saratogeuse Condblock" class="w-full h-auto mobile-image-animate">
+            <div class="absolute inset-0 p-4 text-white text-left flex flex-col justify-center">
+              <h2 class="text-[14px] font-semibold mb-6 leading-[20px] mobile-text-animate">Selegence studies winning websites in your niche</h2>
+              <h4 class="text-[11px] font-normal leading-[15px] mb-[2px] mobile-text-animate mobile-animate-delay-1">It identifies what makes them effective — from content structure and visual rhythm to communication style and engagement tricks.</h4>
+              <h4 class="text-[11px] font-normal leading-[15px] mobile-text-animate mobile-animate-delay-2">Then it distills these insights into clear patterns and principles the foundation for a site that looks unique but follows what works.</h4>
+            </div>
+          </div>
+          <!-- Block 3 -->
+          <div class="relative mobile-block-animate">
+            <img src="./assets/turanblockthird.png" alt="Turan Third Block" class="w-full h-auto mobile-image-animate">
+            <div class="absolute inset-0 p-4 text-white text-left flex flex-col justify-center">
+              <h2 class="text-[14px] font-semibold mb-6 leading-[20px] mobile-text-animate">You get a live, editable website — built for growth</h2>
+              <h4 class="text-[11px] font-normal leading-[15px] mb-[2px] mobile-text-animate mobile-animate-delay-1">The site is fully responsive, SEO-friendly, and ready to go.</h4>
+              <h4 class="text-[11px] font-normal leading-[15px] mb-[2px] mobile-text-animate mobile-animate-delay-2">It looks great on any device, loads fast, and comes with animations.</h4>
+              <h4 class="text-[11px] font-normal leading-[15px] mobile-text-animate mobile-animate-delay-3">After generation, you can easily tweak anything — text, blocks, layout — right in the visual editor.</h4>
+            </div>
+          </div>
+          <!-- Block 4 -->
+          <div class="relative mobile-block-animate">
+            <img src="./assets/blockfourthphone.png" alt="Block Fourth Phone" class="w-full h-auto mobile-image-animate">
+            <div class="absolute inset-0 p-4 text-white text-left flex flex-col justify-center">
+              <h2 class="text-[14px] font-semibold mb-6 leading-[20px] mobile-text-animate">Your structure — built for results</h2>
+              <h4 class="text-[11px] font-normal leading-[15px] mb-[2px] mobile-text-animate mobile-animate-delay-1">Selegence turns insight into a custom layout, shaped around your goals and audience.</h4>
+              <h4 class="text-[11px] font-normal leading-[15px] mobile-text-animate mobile-animate-delay-2">You get an organic structure where every part has a purpose to engage, guide, and convert. Each section is the result of meaning, intent, and proven practices arranged with logic and flow.</h4>
+            </div>
+          </div>
+        </div>
+      </div>
 
-  // Функция для обработки анимаций при скролле
-  function handleScrollAnimations() {
-    const animatedElements = document.querySelectorAll('.mobile-animate, .mobile-text-animate, .mobile-block-animate, .mobile-image-animate, .mobile-gradient-text-animate');
-    
-    animatedElements.forEach(element => {
-      if (isElementInViewport(element)) {
-        element.style.visibility = 'visible';
-        element.style.opacity = '1';
-        element.style.transform = 'translateY(0)';
-      }
-    });
-  }
+      <!-- Mobile: Visual Preview Section -->
+      <div class="relative w-full bg-no-repeat bg-cover bg-center pt-10 pb-12" style="background-image: url('./assets/rynnerback.png');">
+        <div class="px-4 flex flex-col items-center space-y-10">
+          <img src="./assets/ChatPreviewPhone.png" alt="Chat Preview" class="w-full max-w-sm h-auto mobile-image-animate">
+          <img src="./assets/PhonePreview2.png" alt="Phone Preview 2" class="w-full max-w-sm h-auto mobile-image-animate mobile-animate-delay-1">
+        </div>
+      </div>
 
-  // Добавляем обработчик скролла
-  window.addEventListener('scroll', handleScrollAnimations);
-  
-  // Запускаем проверку при загрузке страницы
-  document.addEventListener('DOMContentLoaded', handleScrollAnimations);
-</script>
+      <!-- Mobile: Intro Text for Editor -->
+      <div class="px-4 py-12 text-center text-white">
+        <div class="flex flex-col items-center space-y-6">
+          <h2 class="text-[12px] leading-[28px] mobile-text-animate">Selegence it's a flexible tool that adapts to your device.</h2>
+          <h2 class="text-[12px] leading-[28px] mobile-text-animate mobile-animate-delay-1">On mobile — AI helps you edit your site directly through chat.</h2>
+          <h2 class="text-[12px] leading-[28px] mobile-text-animate mobile-animate-delay-2">On desktop — a powerful visual interface.</h2>
+        </div>
+      </div>
 
+      <div class="relative w-full bg-no-repeat bg-cover bg-center text-white" style="background-image: url('./assets/togue.png');">
+        <div class="px-4 pt-24 pb-16">
+          <div class="text-left mb-12">
+            <h2 class="text-[18px] sm:text-[22px] md:text-[28px] lg:text-[36px] font-medium leading-[24px] sm:leading-[28px] md:leading-[36px] lg:leading-[44px] mobile-gradient-text-animate">
+              <span class="bg-gradient-to-r from-indigo-400 via-pink-500 to-yellow-400 bg-clip-text text-transparent">Selegence Editor</span>
+            </h2>
+            <h3 class="text-[12px] font-medium leading-[18px] max-w-3xl mx-auto text-gray-300 mobile-text-animate mobile-animate-delay-1">Full control over your site with total creative freedom.</h3>
+          </div>
+          <div class="flex flex-col items-center space-y-12">
+            <!-- Block 1 -->
+            <div class="relative w-full max-w-[18rem] mobile-block-animate">
+              <img src="./assets/blockeditorfirst.png" alt="Editor Block 1" class="w-full h-auto mobile-image-animate">
+              <div class="absolute inset-0 p-4 flex items-center justify-center text-center">
+                <h4 class="text-[12px] font-normal leading-[18px] mobile-text-animate">Edit content and structure directly in the interface</h4>
+              </div>
+            </div>
+            <!-- Block 2 -->
+            <div class="relative w-full max-w-[18rem] mobile-block-animate">
+              <img src="./assets/blockeditorsecond.png" alt="Editor Block 2" class="w-full h-auto mobile-image-animate">
+              <div class="absolute inset-0 p-4 flex items-center justify-center text-center">
+                <h4 class="text-[12px] font-normal leading-[18px] mobile-text-animate">Customize styles, animations, and layout blocks to match your vision</h4>
+              </div>
+            </div>
+            <!-- Block 3 -->
+            <div class="relative w-full max-w-[18rem] mobile-block-animate">
+              <img src="./assets/blockeditorthird.png" alt="Editor Block 3" class="w-full h-auto mobile-image-animate">
+              <div class="absolute inset-0 p-4 flex items-center justify-center text-center">
+                <h4 class="text-[12px] font-normal leading-[18px] mobile-text-animate">Preview how your site looks on different devices</h4>
+              </div>
+            </div>
+          </div>
+          <div class="text-left mt-4">
+            <h3 class="text-[12px] font-medium leading-[18px] mobile-text-animate">Switch between visual and AI-assisted editing<br>whatever works best for you.</h3>
+          </div>
+        </div>
+      </div>
+
+      <!-- Mobile: Final Preview Section -->
+      <div class="py-12 px-4 flex flex-col items-center space-y-10">
+        <img src="./assets/TopPreviewPhone.png" alt="Top Preview" class="w-full max-w-md h-auto mobile-image-animate">
+        <img src="./assets/EditorPreviewPhone.png" alt="Editor Preview" class="w-full max-w-md h-auto mobile-image-animate mobile-animate-delay-1">
+      </div>
+
+      <!-- Mobile: After Generation Text -->
+      <div class="text-center text-white py-0 px-4 mb-0">
+        <h2 class="text-[20px] font-semibold leading-[24px] mb-6 mobile-text-animate">After Generation</h2>
+        <h2 class="text-[20px] fragment-mono font-semibold leading-[24px] mb-6 mobile-gradient-text-animate">
+          <span class="bg-gradient-to-r from-green-400 via-purple-500 to-red-500 bg-clip-text text-transparent">Selegence</span>
+        </h2>
+        <h2 class="text-[20px] font-semibold leading-[24px] mb-6 mobile-text-animate mobile-animate-delay-1">Takes It Further</h2>
+        <h2 class="text-[11px] font-normal leading-[15px] mb-4 max-w-3xl mx-auto text-gray-300 mobile-text-animate mobile-animate-delay-2">Selegence doesn't stop at generation. The platform helps you bring your project to completion: optimize it, publish it, and track its performance.</h2>
+      </div>
+
+      <!-- Mobile: Final Blocks -->
+      <div class="p-0 px-4 flex flex-col items-center space-y-8">
+        <img src="./assets/rectangle 105.png" alt="Separator" class="w-full max-w-md h-auto mb-2">
+        <!-- Deployment Block -->
+        <div class="relative w-full max-w-[18rem] mobile-block-animate">
+          <img src="./assets/blockdeploymentphone.png" alt="Deployment Block" class="w-full h-auto mobile-image-animate">
+          <div class="absolute inset-0 p-4 text-white text-left flex flex-col justify-center">
+            <h3 class="text-xl font-medium mb-2">Deployment</h3>
+            <p class="text-[13px] mb-2">Easily publish your site and make it live.</p>
+            <ul class="list-disc list-inside text-xs space-y-1">
+              <li>One-click deployment to Vercel</li>
+              <li>Custom domain support</li>
+              <li>Shareable public link.</li>
+            </ul>
+          </div>
+        </div>
+        <!-- SEO Block -->
+        <div class="relative w-full max-w-[18rem] mobile-block-animate">
+          <img src="./assets/blockseophone.png" alt="SEO Block" class="w-full h-auto mobile-image-animate">
+          <div class="absolute inset-0 p-4 text-white text-left flex flex-col justify-center">
+            <h3 class="text-xl font-medium mb-2">SEO</h3>
+            <p class="text-[13px] mb-2">Your site is optimized for search engines.</p>
+            <ul class="list-disc list-inside text-xs space-y-1">
+              <li>Structured tags, titles, and meta descriptions</li>
+              <li>Semantic HTML for better indexing</li>
+              <li>Ready for visibility and ranking.</li>
+            </ul>
+          </div>
+        </div>
+        <!-- Analytics Block -->
+        <div class="relative w-full max-w-[18rem] mobile-block-animate">
+          <img src="./assets/blockanalyticsphone.png" alt="Analytics Block" class="w-full h-auto mobile-image-animate">
+          <div class="absolute inset-0 p-4 text-white text-left flex flex-col justify-center">
+            <h3 class="text-xl font-medium mb-2">Analytics</h3>
+            <p class="text-[13px] mb-2">Understand your audience and their behavior.</p>
+            <ul class="list-disc list-inside text-xs space-y-1">
+              <li>Page views and traffic insights</li>
+              <li>Integration with Google Analytics</li>
+              <li>Simple, clear metrics inside the dashboard</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+    <section class="w-full flex flex-col items-center justify-center py-12 px-4 bg-transparent">
+      <div class="max-w-xl w-full">
+        <h2 class="font-light text-white text-lg text-center mb-2" style="font-family: 'Figtree', sans-serif;">
+          Join the closed launch of Selegence<br> explore the platform before its public release.
+        </h2>
+        <h3 class="font-light text-xs text-center text-gray-300 mb-4" style="font-family: 'Figtree', sans-serif;">
+          Leave your email and stay tuned — we'll reach out as soon as Selegence goes live.
+        </h3>
+        <form id="email-form-bottom-mobile" class="flex mt-4 w-[95%] max-w-[270px] mx-auto z-10 bg-white shadow rounded-full border border-gray-200 items-center flex-row" autocomplete="off" aria-label="Join Selegence closed launch">
+          <input type="email" id="email-input-bottom-mobile" name="email" required autocomplete="off" placeholder="Email" class="flex-1 h-[32px] px-4 rounded-full border-0 focus:ring-0 outline-none text-gray-900 text-xs bg-transparent overflow-x-auto whitespace-nowrap font-[300] font-light" aria-label="Email address" style="font-family: 'Figtree', sans-serif;">
+          <input type="text" name="website" class="hidden" aria-hidden="true" tabindex="-1">
+          <button type="submit" id="email-submit-bottom-mobile" class="h-[32px] px-4 bg-black text-white font-normal rounded-full text-xs transition disabled:opacity-60 flex items-center justify-center ml-2 font-[300] font-light" aria-label="Submit email"><span class="text-xs font-normal">Submit</span></button>
+        </form>
+        <div id="email-message-bottom-mobile" class="mt-2 min-h-[24px] text-center text-xs font-[300] font-light"></div>
+      </div>
+    </section>
+    <div class="w-full text-center text-xs text-gray-400 py-8" style="font-family: 'Figtree', sans-serif;">Contact: selegence25@gmail.com</div>
+  </div>
 </body>
 </html>

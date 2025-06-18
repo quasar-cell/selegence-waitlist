@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Form Testing</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .form-group { margin: 20px 0; padding: 20px; border: 1px solid #ccc; }
+        .success { color: green; }
+        .error { color: red; }
+        .info { color: blue; }
+        input, button { padding: 10px; margin: 5px; }
+        .honeypot { display: none; }
+    </style>
+</head>
+<body>
+    <h1>Form Testing Page</h1>
+    
+    <div class="form-group">
+        <h2>Desktop Hero Form</h2>
+        <form id="email-form-desktop" autocomplete="off">
+            <input type="email" id="email-input-desktop" placeholder="Enter email" required>
+            <input type="text" name="website" class="honeypot" tabindex="-1">
+            <button type="submit">Submit</button>
+        </form>
+        <div id="email-message-desktop"></div>
+    </div>
+
+    <div class="form-group">
+        <h2>Desktop Bottom Form</h2>
+        <form id="email-form-bottom" autocomplete="off">
+            <input type="email" id="email-input-bottom" placeholder="Enter email" required>
+            <input type="text" name="website" class="honeypot" tabindex="-1">
+            <button type="submit">Submit</button>
+        </form>
+        <div id="email-message-bottom"></div>
+    </div>
+
+    <div class="form-group">
+        <h2>Mobile Hero Form</h2>
+        <form id="email-form-mobile" autocomplete="off">
+            <input type="email" id="email-input-mobile" placeholder="Enter email" required>
+            <input type="text" name="website" class="honeypot" tabindex="-1">
+            <button type="submit">Submit</button>
+        </form>
+        <div id="email-message-mobile"></div>
+    </div>
+
+    <div class="form-group">
+        <h2>Mobile Bottom Form</h2>
+        <form id="email-form-bottom-mobile" autocomplete="off">
+            <input type="email" id="email-input-bottom-mobile" placeholder="Enter email" required>
+            <input type="text" name="website" class="honeypot" tabindex="-1">
+            <button type="submit">Submit</button>
+        </form>
+        <div id="email-message-bottom-mobile"></div>
+    </div>
+
+    <div class="form-group">
+        <h2>Honeypot Test</h2>
+        <p>Try filling the hidden field to test bot protection:</p>
+        <form id="honeypot-test" autocomplete="off">
+            <input type="email" placeholder="Enter email" required>
+            <input type="text" name="website" placeholder="This should be hidden" style="display: block;">
+            <button type="submit">Submit (Should be blocked)</button>
+        </form>
+        <div id="honeypot-message"></div>
+    </div>
+
+    <script type="module">
+        import { validateEmail, setupRealTimeValidation } from './email-validation.js';
+
+        // Функция для проверки honeypot (анти-бот защита)
+        function checkHoneypot(form) {
+            const honeypotField = form.querySelector('input[name="website"]');
+            return honeypotField && honeypotField.value.trim() === '';
+        }
+
+        // Функция для отправки email (мок)
+        async function submitEmail(email, formId) {
+            console.log('Submitting email:', email, 'for form:', formId);
+            
+            // Имитируем задержку сети
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            // Всегда возвращаем успех для тестирования
+            return { 
+                success: true, 
+                message: `Thank you! You've been added to our waitlist. (Form: ${formId})` 
+            };
+        }
+
+        // Функция для обработки отправки формы
+        async function handleFormSubmit(event, formId, inputId, messageId) {
+            event.preventDefault();
+            
+            const form = event.target;
+            const input = document.getElementById(inputId);
+            const messageElement = document.getElementById(messageId);
+            const submitButton = form.querySelector('button[type="submit"]');
+            
+            // Проверка honeypot
+            if (!checkHoneypot(form)) {
+                console.log('Bot detected via honeypot');
+                messageElement.textContent = 'Submission blocked by honeypot protection.';
+                messageElement.className = 'error';
+                return;
+            }
+
+            const email = input.value.trim();
+            
+            if (!email) {
+                messageElement.textContent = 'Please enter your email address.';
+                messageElement.className = 'error';
+                return;
+            }
+
+            // Валидация email
+            const validation = await validateEmail(email);
+            if (!validation.isValid) {
+                messageElement.textContent = validation.error;
+                messageElement.className = 'error';
+                return;
+            }
+
+            // Отключаем кнопку и показываем загрузку
+            submitButton.disabled = true;
+            submitButton.textContent = 'Submitting...';
+            messageElement.textContent = 'Submitting...';
+            messageElement.className = 'info';
+
+            try {
+                const result = await submitEmail(email, formId);
+                
+                if (result.success) {
+                    messageElement.textContent = result.message;
+                    messageElement.className = 'success';
+                    input.value = '';
+                    form.reset();
+                } else {
+                    messageElement.textContent = result.message;
+                    messageElement.className = 'error';
+                }
+            } catch (error) {
+                messageElement.textContent = 'An error occurred. Please try again.';
+                messageElement.className = 'error';
+            } finally {
+                // Восстанавливаем кнопку
+                submitButton.disabled = false;
+                submitButton.textContent = 'Submit';
+            }
+        }
+
+        // Инициализация всех форм
+        document.addEventListener('DOMContentLoaded', function() {
+            // Desktop формы
+            const desktopForm = document.getElementById('email-form-desktop');
+            const desktopInput = document.getElementById('email-input-desktop');
+            const desktopMessage = document.getElementById('email-message-desktop');
+            
+            if (desktopForm && desktopInput && desktopMessage) {
+                desktopForm.addEventListener('submit', (e) => handleFormSubmit(e, 'desktop', 'email-input-desktop', 'email-message-desktop'));
+                setupRealTimeValidation(desktopInput, desktopMessage);
+            }
+
+            const bottomForm = document.getElementById('email-form-bottom');
+            const bottomInput = document.getElementById('email-input-bottom');
+            const bottomMessage = document.getElementById('email-message-bottom');
+            
+            if (bottomForm && bottomInput && bottomMessage) {
+                bottomForm.addEventListener('submit', (e) => handleFormSubmit(e, 'bottom', 'email-input-bottom', 'email-message-bottom'));
+                setupRealTimeValidation(bottomInput, bottomMessage);
+            }
+
+            // Mobile формы
+            const mobileForm = document.getElementById('email-form-mobile');
+            const mobileInput = document.getElementById('email-input-mobile');
+            const mobileMessage = document.getElementById('email-message-mobile');
+            
+            if (mobileForm && mobileInput && mobileMessage) {
+                mobileForm.addEventListener('submit', (e) => handleFormSubmit(e, 'mobile', 'email-input-mobile', 'email-message-mobile'));
+                setupRealTimeValidation(mobileInput, mobileMessage);
+            }
+
+            const bottomMobileForm = document.getElementById('email-form-bottom-mobile');
+            const bottomMobileInput = document.getElementById('email-input-bottom-mobile');
+            const bottomMobileMessage = document.getElementById('email-message-bottom-mobile');
+            
+            if (bottomMobileForm && bottomMobileInput && bottomMobileMessage) {
+                bottomMobileForm.addEventListener('submit', (e) => handleFormSubmit(e, 'bottom-mobile', 'email-input-bottom-mobile', 'email-message-bottom-mobile'));
+                setupRealTimeValidation(bottomMobileInput, bottomMobileMessage);
+            }
+
+            // Honeypot test form
+            const honeypotForm = document.getElementById('honeypot-test');
+            const honeypotMessage = document.getElementById('honeypot-message');
+            
+            if (honeypotForm && honeypotMessage) {
+                honeypotForm.addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    if (!checkHoneypot(honeypotForm)) {
+                        honeypotMessage.textContent = '✅ Honeypot protection working! Form blocked.';
+                        honeypotMessage.className = 'success';
+                    } else {
+                        honeypotMessage.textContent = '❌ Honeypot protection failed!';
+                        honeypotMessage.className = 'error';
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+</html> 
